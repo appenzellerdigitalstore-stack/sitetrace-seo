@@ -2,6 +2,13 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
 /**
+ * Response header carrying the URL the target site actually resolved to
+ * (after its own redirects). Must stay identical in the dev plugin below and
+ * in worker/fetch-proxy.ts, which is the production implementation.
+ */
+export const FINAL_URL_HEADER = "x-sitetrace-final-url";
+
+/**
  * Dev/preview stand-in for the Cloudflare Worker that ships to production.
  *
  * The audit has to fetch an arbitrary third-party URL, which browsers block on
@@ -13,7 +20,7 @@ import react from "@vitejs/plugin-react";
  */
 function fetchProxy(): Plugin {
   return {
-    name: "pagelens-fetch-proxy",
+    name: "sitetrace-seo-fetch-proxy",
     configureServer(server) {
       server.middlewares.use("/api/fetch", async (req, res) => {
         const target = new URL(req.url ?? "", "http://localhost").searchParams.get("url");
@@ -27,13 +34,13 @@ function fetchProxy(): Plugin {
             redirect: "follow",
             headers: {
               "User-Agent":
-                "Mozilla/5.0 (compatible; PageLens/0.1; +https://pagelens.pages.dev)",
+                "Mozilla/5.0 (compatible; SiteTrace-SEO/0.1; +https://sitetrace.it.com)",
               Accept: "text/html,application/xhtml+xml",
             },
           });
           const html = await upstream.text();
           res.setHeader("content-type", "text/html; charset=utf-8");
-          res.setHeader("x-pagelens-final-url", upstream.url);
+          res.setHeader(FINAL_URL_HEADER, upstream.url);
           res.end(html);
         } catch (err) {
           res.statusCode = 502;

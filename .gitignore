@@ -5,6 +5,8 @@ dist/
 # build scratch
 sample-report.mjs
 *.tsbuildinfo
+__pycache__/
+*.pyc
 
 # dev server output
 dev.log

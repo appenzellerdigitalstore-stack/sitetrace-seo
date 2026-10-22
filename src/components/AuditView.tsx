@@ -45,7 +45,7 @@ export default function AuditView({
       if (!res.ok) throw new Error(`Proxy returned ${res.status}`);
 
       const html = await res.text();
-      const finalUrl = res.headers.get("x-pagelens-final-url") ?? normalised;
+      const finalUrl = res.headers.get("x-sitetrace-final-url") ?? normalised;
       setResult(runAudit(html, normalised, finalUrl));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

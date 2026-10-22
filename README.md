@@ -1,4 +1,4 @@
-# PageLens
+# SiteTrace SEO
 
 On-page SEO audit with a white-label PDF report. The audit runs in the browser;
 the PDF is generated locally, so exporting a report costs nothing in server
@@ -63,15 +63,15 @@ caching, no auth. It blocks private/internal hosts so it cannot be used to reach
 a private network.
 
 ```bash
-npx wrangler deploy worker/fetch-proxy.ts --name pagelens-fetch
+npx wrangler deploy worker/fetch-proxy.ts --name sitetrace-seo-fetch
 # route: /api/fetch
 ```
 
 ## Branding
 
-The default brand is PageLens. A user can replace it with their own name, logo,
+The default brand is SiteTrace. A user can replace it with their own name, logo,
 website and accent colour under **Your brand**. The PDF is drawn entirely from
-that state, so an exported report carries the customer's brand with no PageLens
+that state, so an exported report carries the customer's brand with no SiteTrace
 mark, name or colour anywhere on it.
 
 Brand state lives in `localStorage` only — a logo is never uploaded.
@@ -89,12 +89,25 @@ report in two brands.
 
 ## Brand asset
 
+Brand files are derived from the supplied SiteTrace lockup:
+
 ```bash
-python scripts/make-icon.py
+python scripts/extract_logo.py "<path-to-sitetrace-logo>"
+python scripts/analyse-logo.py   # diagnostic: ink-column profile
 ```
 
-Regenerates `public/brand/pagelens-icon.png` from the same geometry as the SVG
-mark and the mark drawn into the PDF, so the brand is identical everywhere.
+Produces `public/brand/sitetrace-mark-white.png` (mark, white, transparent),
+`sitetrace-mark-blue.png`, `sitetrace-lockup.png` (full lockup, transparent),
+and `sitetrace-icon.png` / `sitetrace-icon-180.png` (mark on a navy tile, for
+favicon and PWA).
+
+The source is a JPEG on a flat navy plate, so the extraction has to solve two
+problems: there is no alpha channel, and the lockup is far too wide to use as an
+icon. `extract_logo.py` rebuilds alpha from the plate colour, then splits the
+mark from the wordmark. Splitting needs care — letter spacing inside the
+wordmark produces gaps too, so the split only considers gaps in the left 55% of
+the image. Run `analyse-logo.py` if the split ever looks wrong; it prints the
+ink-column profile.
 
 ## Audit rules
 

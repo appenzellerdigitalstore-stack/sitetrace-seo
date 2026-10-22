@@ -35,7 +35,7 @@ export default function BrandPanel({
       <h1>Your brand on every report</h1>
       <p className="lede">
         Whatever you set here is what gets printed on the PDF. It stays in this browser — nothing is
-        uploaded, and the PageLens name is removed from the document entirely.
+        uploaded, and the SiteTrace name is removed from the document entirely.
       </p>
 
       <div className="brand-grid">
@@ -124,7 +124,7 @@ export default function BrandPanel({
           </div>
           <div className="actions">
             <button className="btn ghost" onClick={() => onChange({ ...DEFAULT_BRAND })}>
-              Reset to PageLens
+              Reset to SiteTrace
             </button>
             <button className="btn primary" onClick={onDone}>
               Run an audit with this brand

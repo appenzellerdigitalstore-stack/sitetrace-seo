@@ -1,21 +1,59 @@
 import type { Brand } from "./types";
 
 /**
- * Brand state. The default brand is PageLens; an Agency or Pro user replaces it
- * with their own name, logo and accent colour, and every exported PDF carries
- * that brand instead. Nothing here is uploaded anywhere — it lives in this
- * browser only, which is why a logo never costs the customer anything.
+ * Brand state. The default brand is SiteTrace; an Agency or Pro user replaces
+ * it with their own name, logo and accent colour, and every exported PDF
+ * carries that brand instead. Nothing here is uploaded anywhere — it lives in
+ * this browser only, which is why a logo never costs the customer anything.
  */
 
 export const DEFAULT_BRAND: Brand = {
   logo: "default",
-  name: "PageLens",
-  site: "pagelens.pages.dev",
-  accent: "#3b82f6",
+  name: "SiteTrace",
+  site: "sitetrace.it.com",
+  accent: "#3884de",
   tagline: "On-page SEO audit",
 };
 
-const STORAGE_KEY = "pagelens.brand.v1";
+/** The SiteTrace mark, used by the UI and the PDF report header. */
+export const DEFAULT_MARK_SRC = "/brand/sitetrace-mark-white.png";
+
+/**
+ * The SiteTrace mark as a data URL.
+ *
+ * jsPDF needs the bitmap synchronously, so the app fetches it once at startup
+ * and parks it here. This lives in brand.ts rather than pdf.ts on purpose:
+ * pdf.ts is lazy-loaded (it is ~360 kB), so state kept there would not exist
+ * until the user first exports a report.
+ */
+let defaultLogoDataUrl: string | undefined;
+
+export function setDefaultLogo(dataUrl: string | undefined): void {
+  defaultLogoDataUrl = dataUrl;
+}
+
+export function getDefaultLogo(): string | undefined {
+  return defaultLogoDataUrl;
+}
+
+/** Fetches the default mark and caches it for the PDF report header. */
+export async function preloadDefaultLogo(): Promise<void> {
+  if (defaultLogoDataUrl) return;
+  try {
+    const blob = await fetch(DEFAULT_MARK_SRC).then((r) => r.blob());
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result));
+      fr.onerror = () => reject(new Error("logo read failed"));
+      fr.readAsDataURL(blob);
+    });
+    setDefaultLogo(dataUrl);
+  } catch {
+    // Non-fatal: the report falls back to a drawn vector mark.
+  }
+}
+
+const STORAGE_KEY = "sitetrace.seo.brand.v1";
 
 export function loadBrand(): Brand {
   try {

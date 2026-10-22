@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import type { AuditResult, Brand, CheckStatus } from "./types";
 import { GROUP_ORDER } from "./audit";
-import { isLight, shade } from "./brand";
+import { getDefaultLogo, isLight, shade } from "./brand";
 
 /**
  * White-label report generator.
@@ -13,7 +13,7 @@ import { isLight, shade } from "./brand";
  *
  * Every visual element is driven by `brand`, so a report exported by an
  * agency carries that agency's logo, name, accent colour and tagline, with no
- * trace of PageLens anywhere on it.
+ * trace of SiteTrace anywhere on it.
  */
 
 const PAGE_W = 210;
@@ -37,19 +37,25 @@ function drawBrandHeader(doc: jsPDF, brand: Brand, generatedAt: string): number 
   const y = M;
   const dark = !isLight(brand.accent);
 
-  // Logo: uploaded bitmap, or the built-in mark drawn as vector art.
-  if (brand.logo === "custom" && brand.logoDataUrl) {
+  // Logo: the customer's uploaded bitmap, the preloaded SiteTrace mark, or a
+  // drawn vector stand-in when neither is available.
+  const logoSrc = brand.logo === "custom" && brand.logoDataUrl ? brand.logoDataUrl : getDefaultLogo();
+  if (logoSrc) {
     try {
-      doc.addImage(brand.logoDataUrl, "AUTO", M, y - 1, 26, 26, undefined, "FAST");
+      // The supplied mark is a wide-ish glyph; keep the plate square and inset
+      // the artwork so it never touches the header text.
+      const isSquareDefault = brand.logo !== "custom";
+      const h = isSquareDefault ? 17 : 26;
+      const w = isSquareDefault ? 22 : 26;
+      doc.addImage(logoSrc, "AUTO", M, y + (26 - h) / 2, w, h, undefined, "FAST");
     } catch {
-      /* malformed data URL — fall through to the drawn mark */
       drawDefaultMark(doc, M, y - 1, brand);
     }
   } else {
     drawDefaultMark(doc, M, y - 1, brand);
   }
 
-  const textX = M + 32;
+  const textX = M + (logoSrc ? 28 : 32);
   doc.setTextColor(dark ? "#ffffff" : "#0f172a");
   doc.setFont("helvetica", "bold").setFontSize(17);
   doc.text(brand.name, textX, y + 6);

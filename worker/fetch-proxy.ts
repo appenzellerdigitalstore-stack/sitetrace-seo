@@ -10,16 +10,22 @@
  * operation in the product, which is why plans are metered in audits rather
  * than in page views.
  *
- * Deploy:  npx wrangler deploy worker/fetch-proxy.ts --name pagelens-fetch
+ * Deploy:  npx wrangler deploy worker/fetch-proxy.ts --name sitetrace-seo-fetch
  * Route:   /api/fetch
+ *
+ * The FINAL_URL_HEADER name below must match vite.config.ts, which implements
+ * the same relay for local development.
  */
 
 export interface Env {
   ALLOWED_ORIGIN?: string;
 }
 
+/** Must match the dev plugin in vite.config.ts. */
+const FINAL_URL_HEADER = "x-sitetrace-final-url";
+
 const ALLOW: string[] = [
-  "Mozilla/5.0 (compatible; PageLens/0.1; +https://pagelens.pages.dev)",
+  "Mozilla/5.0 (compatible; SiteTrace-SEO/0.1; +https://sitetrace.it.com)",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
 ];
 
@@ -103,7 +109,7 @@ export default {
         headers: {
           "content-type": "text/html; charset=utf-8",
           "access-control-allow-origin": allowOrigin,
-          "x-pagelens-final-url": upstream.url,
+          "x-sitetrace-final-url": upstream.url,
           "cache-control": "public, max-age=300",
         },
       });

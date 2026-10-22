@@ -39,6 +39,7 @@ body {
 .brand-text strong { font-size: 15px; }
 .brand-text small { color: var(--dim); font-size: 11px; }
 .mark { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex: none; }
+.mark-default img { width: 76%; height: 76%; object-fit: contain; }
 .mark-img { width: 30px; height: 30px; border-radius: 8px; object-fit: contain; background: #fff; padding: 2px; }
 
 .nav { display: flex; gap: 4px; margin-left: 8px; }

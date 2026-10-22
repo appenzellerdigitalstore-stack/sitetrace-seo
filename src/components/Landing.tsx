@@ -3,13 +3,15 @@ import { PLANS, can } from "../plans";
 import type { PlanId } from "../types";
 import Mark from "./Mark";
 
-const fmt = (v: string | boolean) =>
-  v === true ? "✓" : v === false ? "—" : v;
+const fmt = (v: string | boolean) => (v === true ? "✓" : v === false ? "—" : "");
 
 export default function Landing({ onStart, activePlan }: { onStart: () => void; activePlan: PlanId }) {
   const [annual, setAnnual] = useState(false);
   const pro = PLANS.pro;
-  const price = (p: number) => (annual ? Math.round(p * 0.8) : p);
+  // "Two months free" means 10 months paid for 12 — an 0.833 multiplier, not
+  // 0.8. 0.8 would be 2.4 months free and quietly overstate the discount.
+  const monthlyEquivalent = (p: number) => (annual ? (p * 10) / 12 : p);
+  const price = (p: number) => (annual ? monthlyEquivalent(p).toFixed(2) : String(p));
 
   return (
     <main className="wrap">
@@ -21,7 +23,7 @@ export default function Landing({ onStart, activePlan }: { onStart: () => void; 
         </h1>
         <p className="lede">
           A deterministic on-page audit that runs in the browser, plus a white-label PDF built for the
-          freelancer or agency handing the work over. No ads, no watermarks, no PageLens signature on
+          freelancer or agency handing the work over. No ads, no watermarks, no SiteTrace signature on
           anything you export.
         </p>
         <div className="cta-row">
@@ -76,13 +78,19 @@ export default function Landing({ onStart, activePlan }: { onStart: () => void; 
                 </div>
 
                 <ul className="feats">
-                  {plan.features.map((f) => (
-                    <li key={f.key} className={f[plan.id] === false ? "off" : ""}>
-                      <span className="tick">{fmt(f[plan.id])}</span>
-                      <span className="fname">{f.label}</span>
-                      {typeof f[plan.id] === "string" && <span className="fval">{f[plan.id]}</span>}
-                    </li>
-                  ))}
+                  {plan.features.map((f) => {
+                    // Boolean features get a tick or a dash. String features
+                    // (a value like "Your logo & colours") carry no tick, or
+                    // the value would print twice.
+                    const isBool = typeof f[plan.id] === "boolean";
+                    return (
+                      <li key={f.key} className={f[plan.id] === false ? "off" : ""}>
+                        <span className="tick">{isBool ? fmt(f[plan.id]) : ""}</span>
+                        <span className="fname">{f.label}</span>
+                        {!isBool && <span className="fval">{String(f[plan.id])}</span>}
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 {featured && (
@@ -126,7 +134,7 @@ export default function Landing({ onStart, activePlan }: { onStart: () => void; 
             assistant cannot do: a branded artifact you can send a client, a score you can diff against
             last month, and a check that runs whether or not anyone asks.
           </dd>
-          <dt>Does the report show PageLens anywhere?</dt>
+          <dt>Does the report show SiteTrace anywhere?</dt>
           <dd>
             No. Upload a logo and set your name and accent colour; the PDF is generated locally with only
             your branding.
@@ -135,7 +143,7 @@ export default function Landing({ onStart, activePlan }: { onStart: () => void; 
       </section>
 
       <div className="spacer">
-        <Mark logo="default" accent="#3b82f6" />
+        <Mark logo="default" accent="#3884de" />
       </div>
     </main>
   );

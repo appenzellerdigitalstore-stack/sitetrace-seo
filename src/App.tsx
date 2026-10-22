@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Brand, PlanId } from "./types";
-import { DEFAULT_BRAND, loadBrand, saveBrand } from "./brand";
+import { DEFAULT_BRAND, loadBrand, preloadDefaultLogo, saveBrand } from "./brand";
 import { PLANS } from "./plans";
 import Landing from "./components/Landing";
 import AuditView from "./components/AuditView";
@@ -18,6 +18,10 @@ export default function App() {
 
   useEffect(() => setBrand(loadBrand()), []);
   useEffect(() => saveBrand(brand), [brand]);
+  // Warm the SiteTrace mark so the first PDF export already has the real logo.
+  useEffect(() => {
+    void preloadDefaultLogo();
+  }, []);
 
   const active = PLANS[plan];
 
@@ -29,7 +33,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <button className="brand" onClick={() => setTab("landing")} aria-label="PageLens home">
+        <button className="brand" onClick={() => setTab("landing")} aria-label="SiteTrace home">
           {mark}
           <span className="brand-text">
             <strong>{brand.name}</strong>
@@ -71,8 +75,8 @@ export default function App() {
       <footer className="foot">
         <span>
           {brand.logo === "custom"
-            ? "Reports export under your brand — no PageLens attribution."
-            : "Running on the default PageLens brand."}
+            ? "Reports export under your brand — no SiteTrace attribution."
+            : "Running on the default SiteTrace brand."}
         </span>
         <span>Audit runs in your browser · PDF generated locally · no server cost per report</span>
       </footer>

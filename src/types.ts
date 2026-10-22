@@ -35,7 +35,7 @@ export interface AuditResult {
 export type PlanId = "pro" | "agency";
 
 export interface Brand {
-  /** "pagelens" = use the built-in default mark; "custom" = use the uploaded one. */
+  /** "default" = use the built-in SiteTrace mark; "custom" = use the uploaded one. */
   logo: "default" | "custom";
   /** data URL of the uploaded logo. */
   logoDataUrl?: string;

@@ -7,9 +7,10 @@
  *      node dist-tools/sample-report.mjs
  */
 
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { buildReportPdf } from "../src/pdf";
-import { DEFAULT_BRAND } from "../src/brand";
+import { DEFAULT_BRAND, setDefaultLogo } from "../src/brand";
 import type { AuditResult, Brand, Check, CheckGroup } from "../src/types";
 
 const c = (
@@ -71,7 +72,12 @@ const result: AuditResult = {
   counts: { pass: 11, warn: 1, fail: 1, info: 2 },
 };
 
-const brand: Brand = { ...DEFAULT_BRAND, name: "PageLens", accent: "#3b82f6" };
+// The browser preloads this at startup; here we load it from disk so the
+// sample PDFs carry the real SiteTrace mark rather than the vector fallback.
+const markPath = resolve(process.cwd(), "public", "brand", "sitetrace-mark-white.png");
+setDefaultLogo(`data:image/png;base64,${readFileSync(markPath).toString("base64")}`);
+
+const brand: Brand = { ...DEFAULT_BRAND };
 
 const doc = buildReportPdf(result, brand);
 const bytes = doc.output("arraybuffer");
