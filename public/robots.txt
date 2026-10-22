@@ -1,0 +1,13 @@
+# SiteTrace SEO — https://seo.sitetrace.it.com
+#
+# The audit tool is meant to be found and indexed: it is the landing page for
+# the subdomain and the only public content on it.
+
+User-agent: *
+Allow: /
+
+# Nothing here is private, but /api/fetch is a relay we pay for and there is
+# no reason to have it crawled.
+Disallow: /api/
+
+Sitemap: https://seo.sitetrace.it.com/sitemap.xml
