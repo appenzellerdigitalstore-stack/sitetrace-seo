@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Brand, PlanId } from "./types";
 import { DEFAULT_BRAND, loadBrand, preloadDefaultLogo, saveBrand } from "./brand";
 import { PLANS } from "./plans";
 import Landing from "./components/Landing";
 import AuditView from "./components/AuditView";
 import BrandPanel from "./components/BrandPanel";
-import Mark from "./components/Mark";
+import { BrandLockup } from "./components/Mark";
 
 type Tab = "landing" | "audit" | "brand";
 
@@ -25,20 +25,11 @@ export default function App() {
 
   const active = PLANS[plan];
 
-  const mark = useMemo(
-    () => <Mark logo={brand.logo} dataUrl={brand.logoDataUrl} accent={brand.accent} />,
-    [brand.logo, brand.logoDataUrl, brand.accent],
-  );
-
   return (
     <div className="app">
       <header className="topbar">
         <button className="brand" onClick={() => setTab("landing")} aria-label="SiteTrace home">
-          {mark}
-          <span className="brand-text">
-            <strong>{brand.name}</strong>
-            <small>SEO audit &amp; client reports</small>
-          </span>
+          <BrandLockup logo={brand.logo} dataUrl={brand.logoDataUrl} name={brand.name} />
         </button>
 
         <nav className="nav">

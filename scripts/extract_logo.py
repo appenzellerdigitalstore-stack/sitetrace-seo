@@ -169,9 +169,15 @@ def main(src: str) -> None:
 
     lockup = img.convert("RGBA")
     lockup.putalpha(alpha)
-    full = lockup.crop(alpha.getbbox())
     lockup = lockup.crop(alpha.getbbox())
     lockup.save(os.path.join(OUT, "sitetrace-lockup.png"), "PNG", optimize=True)
+
+    # Header-sized copy. The full lockup is 1364px wide and ~330 kB, which is
+    # far more weight than a nav bar slot needs; at 512px it is a few kB and
+    # still covers a 2x display at ~250 CSS px.
+    header_lockup = lockup.copy()
+    header_lockup.thumbnail((512, 512), Image.LANCZOS)
+    header_lockup.save(os.path.join(OUT, "sitetrace-lockup-header.png"), "PNG", optimize=True)
 
     for px, name in [(512, "sitetrace-icon.png"), (180, "sitetrace-icon-180.png")]:
         path = os.path.join(OUT, name)
