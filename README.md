@@ -58,14 +58,39 @@ npm run preview
 
 ## Production fetch proxy
 
-`worker/fetch-proxy.ts` is a deliberately dumb relay: one fetch, no parsing, no
-caching, no auth. It blocks private/internal hosts so it cannot be used to reach
-a private network.
+`functions/api/fetch.ts` is a Cloudflare **Pages Function**: a deliberately dumb
+relay — one fetch, no parsing, no caching, no auth. It blocks private and
+internal hosts so it cannot be used to reach a private network.
+
+It ships with the Pages project, so there is no second wrangler login and no
+route to wire. `vite.config.ts` implements the identical relay for local
+development; the two must keep the same response header name
+(`x-sitetrace-final-url`).
+
+`worker/fetch-proxy.ts` is the standalone Worker equivalent, kept only if you
+ever want to host the relay on a separate route (different origin, different
+billing, or shared across several sites):
 
 ```bash
 npx wrangler deploy worker/fetch-proxy.ts --name sitetrace-seo-fetch
-# route: /api/fetch
 ```
+
+## Deploying to Cloudflare Pages
+
+| Setting | Value |
+|---|---|
+| Repository | `appenzellerdigitalstore-stack/sitetrace-seo` |
+| Production branch | `main` |
+| Framework preset | None |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Node version | `20` (env var `NODE_VERSION`) |
+
+Then add the custom domain `seo.sitetrace.it.com` under **Custom domains**.
+
+Optional: set `ALLOWED_ORIGIN=https://seo.sitetrace.it.com` as an environment
+variable to pin CORS to one origin. Left unset, the relay reflects the request
+origin, which is convenient before the domain is live.
 
 ## Branding
 

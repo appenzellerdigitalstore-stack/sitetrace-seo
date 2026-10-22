@@ -1,20 +1,18 @@
 /**
- * CORS fetch proxy for the on-page audit.
+ * Standalone Worker version of the fetch relay.
  *
- * The audit runs in the browser, but browsers refuse cross-origin fetches to
- * arbitrary sites. This Worker relays exactly one request and returns the HTML.
- * It is deliberately dumb — no parsing, no caching, no auth — because the
- * parsing and report generation both happen client-side.
+ * The production path is `functions/api/fetch.ts`, a Pages Function that ships
+ * with the Pages project — use that unless you specifically need the relay on
+ * a separate route or origin.
  *
- * Cost model: one audit = one Worker invocation. That is the only metered
- * operation in the product, which is why plans are metered in audits rather
- * than in page views.
+ * This file exists for the case where the relay has to live somewhere else. It
+ * is not deployed by `npm run build`.
  *
  * Deploy:  npx wrangler deploy worker/fetch-proxy.ts --name sitetrace-seo-fetch
  * Route:   /api/fetch
  *
- * The FINAL_URL_HEADER name below must match vite.config.ts, which implements
- * the same relay for local development.
+ * The FINAL_URL_HEADER name below must match vite.config.ts (local dev) and
+ * functions/api/fetch.ts (production).
  */
 
 export interface Env {
