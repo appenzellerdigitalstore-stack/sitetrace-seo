@@ -19,7 +19,7 @@ const c = (
   label: string,
   status: Check["status"],
   detail: string,
-  extra: { why?: string; fix?: string } = {},
+  extra: { why?: string; fix?: string; caveat?: string } = {},
 ): Check => ({ group, id, label, status, detail, ...extra });
 
 const checks: Check[] = [
@@ -70,6 +70,7 @@ const result: AuditResult = {
   checks,
   score: 78,
   counts: { pass: 11, warn: 1, fail: 1, info: 2 },
+  rendered: "server",
 };
 
 // The browser preloads this at startup; here we load it from disk so the
@@ -92,5 +93,55 @@ const clientBrand: Brand = {
   tagline: "Web design & performance — Manchester",
 };
 writeFileSync("sample-report-agency.pdf", Buffer.from(buildReportPdf(result, clientBrand).output("arraybuffer")));
+
+// A client-rendered page. The report must not print a score it has no basis
+// for, so this one shows "n/a — client-rendered" instead of a number.
+const clientRendered: AuditResult = {
+  ...result,
+  url: "https://example-spa.com/",
+  finalUrl: "https://example-spa.com/",
+  title: "",
+  description: "",
+  rendered: "client",
+  score: 0,
+  counts: { pass: 0, warn: 3, fail: 0, info: 10 },
+  checks: [
+    c(
+      "Search basics",
+      "rendering",
+      "Page rendering",
+      "warn",
+      "This page builds its content in the browser, so the server returns an empty shell.",
+    ),
+    c(
+      "Search basics",
+      "title",
+      "Title tag",
+      "info",
+      "No <title> element found.",
+      {
+        why: "The title is the clickable headline in Google.",
+        caveat:
+          "This page renders client-side, so the server HTML may not contain this tag even though the live page has it.",
+      },
+    ),
+    c(
+      "Search basics",
+      "description",
+      "Meta description",
+      "info",
+      "No meta description found.",
+      {
+        why: "This is the grey snippet under your title in Google.",
+        caveat:
+          "This page renders client-side, so the server HTML may not contain this tag even though the live page has it.",
+      },
+    ),
+  ],
+};
+writeFileSync(
+  "sample-report-client.pdf",
+  Buffer.from(buildReportPdf(clientRendered, brand).output("arraybuffer")),
+);
 
 console.log(`wrote sample-report-default.pdf (${bytes.byteLength} bytes, ${doc.getNumberOfPages()} pages)`);
