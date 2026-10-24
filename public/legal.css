@@ -1,0 +1,60 @@
+/* Shared shell for the static legal pages (/privacy, /terms, /refund-policy).
+   These are plain static HTML on purpose: payment processors validate these
+   URLs and a hash-routed SPA is a poor thing to hand them. */
+
+:root {
+  --navy: #0a1124;
+  --navy-2: #141d33;
+  --line: #22304d;
+  --text: #dbe3f0;
+  --muted: #94a3b8;
+  --accent: #3884de;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--navy);
+  color: var(--text);
+  font: 16px/1.7 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; }
+
+header.brand {
+  display: flex; align-items: center; gap: 12px;
+  padding-bottom: 22px; margin-bottom: 34px; border-bottom: 1px solid var(--line);
+}
+header.brand img { height: 30px; width: auto; }
+header.brand a { color: var(--accent); text-decoration: none; font-size: 14px; margin-left: auto; }
+
+.eyebrow {
+  display: inline-block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--accent); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px;
+}
+h1 { font-size: clamp(28px, 4vw, 38px); line-height: 1.15; margin: 18px 0 10px; letter-spacing: -0.02em; }
+h2 { font-size: 18px; margin: 34px 0 10px; }
+p, li { color: var(--muted); }
+p strong, li strong { color: var(--text); }
+p a, li a { color: var(--accent); }
+.updated { font-size: 14px; color: var(--muted); margin: 0 0 8px; }
+ul { padding-left: 22px; }
+li { margin-bottom: 8px; }
+table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14.5px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--text); font-weight: 600; }
+td { color: var(--muted); }
+
+.callout {
+  background: var(--navy-2); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 14px 18px; margin: 20px 0;
+}
+.callout p { margin: 0; }
+
+footer.foot {
+  margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--line);
+  font-size: 13.5px; color: var(--muted);
+}
+footer.foot a { color: var(--accent); }

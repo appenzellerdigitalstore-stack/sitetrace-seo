@@ -91,7 +91,12 @@ export default function App() {
             ? "Reports export under your brand — no SiteTrace attribution."
             : "Running on the default SiteTrace brand."}
         </span>
-        <span>Audit runs in your browser · PDF generated locally · no server cost per report</span>
+        <span className="foot-links">
+          <a href="/privacy/">Privacy</a>
+          <a href="/terms/">Terms</a>
+          <a href="/refund-policy/">Refunds</a>
+          <span>Audit runs in your browser · PDF generated locally · no server cost per report</span>
+        </span>
       </footer>
     </div>
   );
