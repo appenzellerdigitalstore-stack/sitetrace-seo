@@ -58,10 +58,11 @@ namespace **twice**, under two different variable names:
 | `QUOTA` | per-IP daily audit counters |
 | `LEADS` | newsletter sign-ups |
 
-**Without the `QUOTA` binding the relay is uncapped** and will happily spend
-the account's daily request budget on a single crawler. It still works — the
-response headers say `x-quota-enforced: false` — but it is not safe to leave
-that way.
+**Without the `QUOTA` binding the free tier does not exist** and the relay is
+uncapped — it will happily spend the account's daily request budget on a
+single crawler. It still works — the response headers say
+`x-quota-enforced: false` — but with a one-a-day free allowance now live,
+this binding is what makes that allowance real. **Treat it as required.**
 
 **Without the `LEADS` binding the signup form reports that sign-ups are not
 switched on yet** and offers the support address instead. It never pretends a
@@ -69,6 +70,26 @@ signup was saved.
 
 One namespace can serve both bindings; the keys are prefixed differently
 (`quota:` and `lead:`).
+
+### Belt and braces: a rate limiting rule
+
+The KV cap limits how much a single IP can use *per day*. It does not stop a
+burst of thirty requests in one minute, which is what a crawler or a script
+would actually do. Add a dashboard rule for that:
+
+**Pages project → Settings → Rate limiting rules → Create rule**
+
+| Setting | Value |
+| --- | --- |
+| Rate limiting characteristic | Requests per period |
+| Requests per period | `30` |
+| Period | `1 minute` |
+| Requests per period per IP | `5` |
+| Mitigation | Block |
+| Duration | `10 minutes` |
+
+This is free on the Pages plan and sits in front of the function, so it
+protects the budget even if the KV counter is misconfigured.
 
 ### Reading the leads
 
@@ -79,7 +100,38 @@ Discord channel as it arrives.
 
 ---
 
-## 4. Custom domain
+## 4. Email addresses (support, privacy, legal)
+
+The legal pages name `support@sitetrace.it.com`, `privacy@sitetrace.it.com`
+and `legal@sitetrace.it.com`. Lemon Squeezy needs a real address that
+receives mail, and the signup form falls back to it when the KV binding is
+missing.
+
+There is no need to buy a mailbox. **Cloudflare Email Routing** is free and
+forwards those addresses into an existing Gmail account.
+
+1. Cloudflare dashboard → **Email** → **Email Routing** → **Get started**.
+2. Cloudflare adds the MX and SPF records for `sitetrace.it.com`. Accept them.
+3. **Routing rules** → **Create address** three times:
+   - `support` → your Gmail address
+   - `privacy` → your Gmail address
+   - `legal` → your Gmail address
+4. Each rule sends one confirmation email. Click the link in each, once.
+5. Send yourself a test mail to `support@sitetrace.it.com` and confirm it lands
+   in Gmail.
+
+Email Routing receives and forwards; it does not send. That is fine here —
+nothing needs to email *from* `sitetrace.it.com`. If sending is ever needed
+(receipts, password resets from your own domain), use Google Workspace on the
+domain instead, which costs about $7 a month.
+
+**Alternative:** if you would rather not set up forwarding at all, point
+everything at your Gmail address instead. That is one constant in
+`src/site.ts` plus the three legal pages, and it takes a minute.
+
+---
+
+## 5. Custom domain
 
 **Pages project → Custom domains → Set up a custom domain** →
 `seo.sitetrace.it.com`.
@@ -90,7 +142,7 @@ two.
 
 ---
 
-## 5. Verify it is live
+## 6. Verify it is live
 
 ```powershell
 curl.exe -s -o NUL -w "%{http_code}" https://seo.sitetrace.it.com/
@@ -102,12 +154,25 @@ curl.exe -s -o NUL -w "%{http_code}" https://seo.sitetrace.it.com/refund-policy/
 All four should return `200`. Then open the site, run an audit against any
 public URL, and download the branded PDF.
 
+**Check the free allowance is actually enforced.** Run one audit — it should
+work and say "That was today's free audit". Run a second one — it should be
+refused with "That is today's free audit used".
+
+If the second audit succeeds, the `QUOTA` binding is missing. The headers say
+so directly:
+
+```powershell
+curl.exe -s -D - -o NUL "https://seo.sitetrace.it.com/api/fetch?url=https%3A%2F%2Fsitetrace.it.com%2F" | Select-String x-quota
+```
+
+`x-quota-enforced: true` is what you want to see.
+
 ---
 
-## 6. Lemon Squeezy application
+## 7. Lemon Squeezy application
 
 The store review needs the legal pages live and a real support address, so
-steps 1–4 have to be done first.
+steps 1–6 have to be done first.
 
 **Product**
 
@@ -132,16 +197,17 @@ the refund, and they take a percentage. The legal pages already say this.
 
 **Before submitting**
 
-- [ ] `support@sitetrace.it.com` actually exists as a mailbox (or is forwarded somewhere you read)
-- [ ] `privacy@sitetrace.it.com` and `legal@sitetrace.it.com` exist, or the addresses are changed
+- [ ] `support@sitetrace.it.com` receives mail (section 4 — forwarded into your Gmail is fine)
+- [ ] `privacy@sitetrace.it.com` and `legal@sitetrace.it.com` receive mail, or the addresses are changed
 - [ ] All four URLs above return 200 from a logged-out browser
 - [ ] The prices on the landing page match the prices entered here
+- [ ] The free allowance on the landing page matches what the relay actually enforces
 
 Reviews take a few days. Nothing else is blocked while waiting.
 
 ---
 
-## 7. After the store is approved
+## 8. After the store is approved
 
 The paywall is deliberately not built yet — a licence-key system built before
 Lemon Squeezy approves is a system built against an assumption. Once the
@@ -166,9 +232,18 @@ The dev server stands in for the Pages Functions, so `/api/fetch` and
 `/api/subscribe` both work locally. Sign-ups are written to `.dev/leads.json`
 instead of KV.
 
+The dev relay enforces the same free allowance, with a limit of 20 a day so
+local work is not interrupted. To exercise the exact production behaviour:
+
+```powershell
+$env:DEV_QUOTA = '1'
+npm run dev
+```
+
 | Command | What it does |
 | --- | --- |
 | `npm run build` | typecheck and build to `dist/` |
+| `npm run check` | typecheck only (app, Pages Functions, vite config) |
 | `node scripts/check-mobile.mjs http://localhost:5199/ 390 844` | reports any element that overflows a phone viewport |
 | `python scripts/make_og_card.py` | regenerates the social share card |
 | `node scripts/extract_logo.py <source>` | rebuilds the brand assets from the original lockup |

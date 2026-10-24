@@ -34,8 +34,9 @@ not a tier.
 | Lead-capture widget | — | yes |
 | Seats | 1 | 5 |
 
-No free tier. Every audit is one real outbound fetch; a free tier subsidised by
-paying users is how a micro-SaaS quietly dies.
+One free audit a day, no signup. Every audit is one real outbound fetch from
+our server, so the free allowance is one a day rather than unlimited — a paid
+plan raises it to 50 (Pro) or 250 (Agency) a day.
 
 ## Request cost
 
@@ -59,6 +60,12 @@ npm run build      # static output in dist/ -> Cloudflare Pages
 npm run preview
 ```
 
+`npm run build` typechecks twice: `tsconfig.json` covers the app, and
+`tsconfig.node.json` covers the Pages Functions, `vite.config.ts` and the
+scripts. The Functions run at the edge and are not inside the app's tsconfig,
+so without the second pass they would ship unverified — and a type error
+there is a runtime error in production.
+
 ## Production fetch proxy
 
 `functions/api/fetch.ts` is a Cloudflare **Pages Function**: a deliberately dumb
@@ -72,8 +79,8 @@ development; the two must keep the same response header name
 
 Two things protect the request budget:
 
-- **A per-IP daily cap** (5 audits/day until licences exist) counted in the
-  `QUOTA` KV namespace. The response carries `x-quota-limit`,
+- **A per-IP daily cap** (1 free audit a day until licences exist) counted in
+  the `QUOTA` KV namespace. The response carries `x-quota-limit`,
   `x-quota-used`, `x-quota-remaining` and `x-quota-enforced`, so an uncapped
   relay is visible rather than silent.
 - **A size cap** of 5 MB on the buffered document. A page larger than that is
@@ -81,6 +88,11 @@ Two things protect the request budget:
 
 A request that fails — a typo, a timeout, a URL that is not HTML — does **not**
 count against the quota. Only a fetch that produced a usable page does.
+
+The limit and its wording live in `functions/api/_quota.ts`, which both the
+deployed function and the dev middleware import. A dev server that behaved
+differently from production is a dev server that lies. `DEV_QUOTA=1 npm run dev`
+makes the local behaviour match production exactly.
 
 `worker/fetch-proxy.ts` is the standalone Worker equivalent, kept only if you
 ever want to host the relay on a separate route (different origin, different
