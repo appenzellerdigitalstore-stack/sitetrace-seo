@@ -4,6 +4,9 @@ On-page SEO audit with a white-label PDF report. The audit runs in the browser;
 the PDF is generated locally, so exporting a report costs nothing in server
 requests.
 
+**Live site:** `seo.sitetrace.it.com`
+**Dashboard setup and the Lemon Squeezy application checklist:** [DEPLOY.md](DEPLOY.md)
+
 ## Why this exists as a paid tool
 
 The audit itself is free everywhere, including from an AI assistant. What is
@@ -67,6 +70,18 @@ route to wire. `vite.config.ts` implements the identical relay for local
 development; the two must keep the same response header name
 (`x-sitetrace-final-url`).
 
+Two things protect the request budget:
+
+- **A per-IP daily cap** (5 audits/day until licences exist) counted in the
+  `QUOTA` KV namespace. The response carries `x-quota-limit`,
+  `x-quota-used`, `x-quota-remaining` and `x-quota-enforced`, so an uncapped
+  relay is visible rather than silent.
+- **A size cap** of 5 MB on the buffered document. A page larger than that is
+  refused with a 413 instead of spending the worker's memory.
+
+A request that fails — a typo, a timeout, a URL that is not HTML — does **not**
+count against the quota. Only a fetch that produced a usable page does.
+
 `worker/fetch-proxy.ts` is the standalone Worker equivalent, kept only if you
 ever want to host the relay on a separate route (different origin, different
 billing, or shared across several sites):
@@ -74,6 +89,53 @@ billing, or shared across several sites):
 ```bash
 npx wrangler deploy worker/fetch-proxy.ts --name sitetrace-seo-fetch
 ```
+
+## Client-rendered pages
+
+A JavaScript-rendered site sends the server an empty shell and fills in the
+tags in the browser. Reporting "missing meta description" for such a page is a
+false claim, so the audit detects the render mode up front and:
+
+- downgrades the affected checks from `fail`/`warn` to `info`,
+- attaches a caveat explaining why the finding may be wrong,
+- shows the score as **n/a — client-rendered** in the UI *and* in the PDF,
+- and still prints the "Page rendering" warning, because the page genuinely
+  does need server-rendered tags.
+
+A report is only worth something if it is true. This is the one place where
+the product refuses to produce a number.
+
+`test/fixtures/spa-fixture.html` is the fixture for it. It lives outside
+`public/` so it can never ship, and the dev server serves it at
+`/__fixtures/spa-fixture.html`.
+
+## Email capture
+
+The newsletter form posts to `functions/api/subscribe.ts`, which writes the
+lead to the `LEADS` KV namespace (`lead:<email>`) and optionally mirrors it to
+`LEADS_WEBHOOK` — a Discord webhook URL will drop each lead into a channel as
+it arrives.
+
+The form never claims a signup was saved when it was not: with no KV binding
+it says sign-ups are not switched on yet and offers the support address
+instead. A honeypot field and a per-IP daily cap keep bots out.
+
+## Legal pages
+
+`/privacy/`, `/terms/` and `/refund-policy/` are static documents in `public/`,
+not hash-routed SPA routes — payment processors validate those URLs, so they
+have to exist as real pages with their own addresses.
+
+## Mobile layout
+
+```bash
+node scripts/check-mobile.mjs http://localhost:5199/ 390 844
+```
+
+Drives a real browser at a real phone viewport and reports any element that
+overflows sideways, plus a screenshot. Horizontal overflow is the failure mode
+that makes a page feel broken on a phone, and it is invisible in a desktop
+browser.
 
 ## Deploying to Cloudflare Pages
 
@@ -91,6 +153,10 @@ Then add the custom domain `seo.sitetrace.it.com` under **Custom domains**.
 Optional: set `ALLOWED_ORIGIN=https://seo.sitetrace.it.com` as an environment
 variable to pin CORS to one origin. Left unset, the relay reflects the request
 origin, which is convenient before the domain is live.
+
+**[DEPLOY.md](DEPLOY.md) has the full step-by-step**, including the KV
+bindings, the optional environment variables and the Lemon Squeezy application
+checklist.
 
 ## Branding
 
@@ -125,6 +191,18 @@ Produces `public/brand/sitetrace-mark-white.png` (mark, white, transparent),
 `sitetrace-mark-blue.png`, `sitetrace-lockup.png` (full lockup, transparent),
 and `sitetrace-icon.png` / `sitetrace-icon-180.png` (mark on a navy tile, for
 favicon and PWA).
+
+The social share card is composed separately:
+
+```bash
+python scripts/make_og_card.py
+```
+
+The lockup on its own is white-on-transparent at a 4.5:1 ratio, which renders
+as a nearly blank strip when the link is shared. `make_og_card.py` composes a
+1200×630 card on the brand navy with the real lockup and one line of headline.
+`og:image` points at it with an absolute URL, because most social crawlers
+ignore a relative one.
 
 The source is a JPEG on a flat navy plate, so the extraction has to solve two
 problems: there is no alpha channel, and the lockup is far too wide to use as an
