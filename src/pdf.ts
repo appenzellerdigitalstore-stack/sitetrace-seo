@@ -146,7 +146,16 @@ export function buildReportPdf(result: AuditResult, brand: Brand): jsPDF {
   doc.text(doc.splitTextToSize(result.finalUrl, CONTENT_W) as string[], M, y + 12);
   y += 20;
 
-  drawScore(doc, M + 16, y + 14, result.score, brand.accent);
+  if (result.rendered === "client") {
+    // Do not print a score the audit has no basis for.
+    doc.setFont("helvetica", "bold").setFontSize(15).setTextColor(...hexToRgb(brand.accent));
+    doc.text("n/a", M + 16, y + 18, { align: "center" });
+    doc.setFont("helvetica", "normal").setFontSize(6.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text("client-rendered", M + 16, y + 23, { align: "center" });
+  } else {
+    drawScore(doc, M + 16, y + 14, result.score, brand.accent);
+  }
 
   const statX = M + 42;
   let sy = y + 4;
@@ -267,6 +276,13 @@ function drawCheck(
     y += why.length * 3.3;
   }
 
+  if (c.caveat) {
+    doc.setFontSize(7.4).setTextColor(180, 130, 20);
+    const note = doc.splitTextToSize(`Note: ${c.caveat}`, CONTENT_W - 10) as string[];
+    doc.text(note, M + 6.5, y);
+    y += note.length * 3.2;
+  }
+
   if (c.fix) {
     const lines = doc.splitTextToSize(c.fix.replace(/\t/g, "  "), CONTENT_W - 14) as string[];
     const boxH = lines.length * 3.2 + 5;
@@ -291,6 +307,9 @@ function drawCheck(
 function buildHeadline(result: AuditResult): string {
   const { pass, warn, fail, info } = result.counts;
   const total = pass + warn + fail + info;
+  if (result.rendered === "client") {
+    return `This page renders its content in the browser, so the server returns an empty shell. The audit can only see what the server sends, which means it cannot confirm or rule out the tags below. A score is not shown for that reason.`;
+  }
   if (fail === 0 && warn === 0) {
     return `All ${total} checks passed. This page is technically sound for on-page SEO. Keep monitoring it so a future edit does not regress it.`;
   }

@@ -115,8 +115,17 @@ export default function AuditView({
         <>
           <section className="result-head">
             <div className="score-ring" style={{ ["--accent" as string]: brand.accent }}>
-              <span>{result.score}</span>
-              <small>/100</small>
+              {result.rendered === "client" ? (
+                <>
+                  <span className="na">n/a</span>
+                  <small>client-rendered</small>
+                </>
+              ) : (
+                <>
+                  <span>{result.score}</span>
+                  <small>/100</small>
+                </>
+              )}
             </div>
             <div className="result-meta">
               <a href={result.finalUrl} target="_blank" rel="noreferrer noopener">
@@ -165,6 +174,7 @@ export default function AuditView({
                     </header>
                     <p>{c.detail}</p>
                     {c.why && <p className="why">{c.why}</p>}
+                    {c.caveat && <p className="caveat">{c.caveat}</p>}
                     {c.fix && (
                       <pre>
                         <code>{c.fix}</code>

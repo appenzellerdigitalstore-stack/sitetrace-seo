@@ -18,6 +18,8 @@ export interface Check {
   why?: string;
   /** Copy-pasteable remediation snippet. Only for checks that can be fixed in markup. */
   fix?: string;
+  /** Shown when the finding may be wrong because the page renders client-side. */
+  caveat?: string;
 }
 
 export interface AuditResult {
@@ -30,6 +32,12 @@ export interface AuditResult {
   checks: Check[];
   score: number;
   counts: Record<CheckStatus, number>;
+  /**
+   * "server" = the HTML we fetched contains the page's real tags.
+   * "client" = the page renders in the browser, so server HTML may be empty
+   *   and any "missing" finding could be a false negative.
+   */
+  rendered: "server" | "client" | "unknown";
 }
 
 export type PlanId = "pro" | "agency";

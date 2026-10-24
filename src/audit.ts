@@ -28,6 +28,42 @@ function metaTag(attrs: Record<string, string>): string {
 
 const weights: Record<CheckStatus, number> = { pass: 1, info: 0.5, warn: 0.25, fail: 0 };
 
+/**
+ * Decides whether the fetched HTML is the real page or an empty shell that
+ * JavaScript fills in later.
+ *
+ * Signals for a client-rendered app: no title, no description, no headings,
+ * a root mount node, and a framework marker in the markup.
+ */
+function detectRenderMode(doc: Document): "server" | "client" | "unknown" {
+  const hasTitle = !!doc.querySelector("title")?.textContent?.trim();
+  const hasDescription = !!doc.querySelector('meta[name="description" i]');
+  const hasHeadings = doc.querySelectorAll("h1,h2,h3").length > 0;
+  const hasMeaningfulText = (doc.body?.textContent?.trim().length ?? 0) > 120;
+
+  if (hasTitle || hasDescription || hasHeadings || hasMeaningfulText) {
+    return "server";
+  }
+
+  const markers = [
+    'div#root',
+    'div#app',
+    'div#__next',
+    'div#__nuxt',
+    'script#__NEXT_DATA__',
+    'script#__NUXT_DATA__',
+    'script[type="application/json" i][data-reactroot]',
+  ];
+  const hasMount = markers.some((sel) => !!doc.querySelector(sel));
+  const hasModuleScript = !!doc.querySelector('script[type="module" i]');
+
+  if (hasMount || (hasModuleScript && !hasMeaningfulText)) {
+    return "client";
+  }
+
+  return "unknown";
+}
+
 export function runAudit(html: string, requestedUrl: string, finalUrl: string): AuditResult {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const checks: Check[] = [];
@@ -40,6 +76,27 @@ export function runAudit(html: string, requestedUrl: string, finalUrl: string): 
     detail: string,
     extra: { why?: string; fix?: string } = {},
   ) => checks.push({ group, id, label, status, detail, ...extra });
+
+  // ---------------------------------------------------------------- render
+  // A client-rendered page sends near-empty HTML and fills in the tags with
+  // JavaScript. Reporting "missing meta description" for such a page is a
+  // false claim, so the mode is detected up front and every tag-related
+  // finding carries a caveat.
+  const rendered = detectRenderMode(doc);
+  const clientRendered = rendered === "client";
+
+  if (clientRendered) {
+    add(
+      "Search basics",
+      "rendering",
+      "Page rendering",
+      "warn",
+      "This page builds its content in the browser, so the server returns an empty shell.",
+      {
+        why: "The audit only sees the HTML the server sends. Tags injected by JavaScript are invisible to it, so any 'missing' finding below may be a false alarm. The page still needs server-rendered tags for search engines to read it.",
+      },
+    );
+  }
 
   // ---------------------------------------------------------------- search
   const title = titleOf(doc);
@@ -282,6 +339,32 @@ export function runAudit(html: string, requestedUrl: string, finalUrl: string): 
   }
 
   // --------------------------------------------------------------- scoring
+  // On a client-rendered page, "missing" findings are probably wrong, so the
+  // affected checks are weighted as notes rather than failures. The score is
+  // still returned, but callers show it as unavailable (see AuditResult.rendered).
+  if (clientRendered) {
+    const caveat =
+      "This page renders client-side, so the server HTML may not contain this tag even though the live page has it.";
+    const affected = new Set([
+      "title",
+      "description",
+      "canonical",
+      "og",
+      "twitter",
+      "h1",
+      "hierarchy",
+      "schema",
+      "wordcount",
+      "alt",
+    ]);
+    for (const c of checks) {
+      if (affected.has(c.id) && (c.status === "fail" || c.status === "warn")) {
+        c.caveat = caveat;
+        c.status = "info";
+      }
+    }
+  }
+
   const counts: Record<CheckStatus, number> = { pass: 0, warn: 0, fail: 0, info: 0 };
   let total = 0;
   for (const c of checks) {
@@ -300,6 +383,7 @@ export function runAudit(html: string, requestedUrl: string, finalUrl: string): 
     checks,
     score,
     counts,
+    rendered,
   };
 }
 
