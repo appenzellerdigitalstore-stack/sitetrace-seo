@@ -114,6 +114,25 @@ h3 { font-size: 16px; margin: 0 0 6px; }
 .why { background: rgba(124,58,237,.09); border: 1px solid rgba(124,58,237,.3); border-radius: 9px; padding: 12px 14px; font-size: 13.5px; color: #cbd5e1; margin: 0 0 16px; }
 .matrix-note { margin-top: 18px; color: var(--muted); font-size: 14px; }
 
+/* ------------------------------------------------------------- subscribe */
+.subscribe {
+  margin-top: 64px; padding: 28px; border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(124,58,237,.10), rgba(59,130,246,.04) 62%), var(--panel);
+}
+.subscribe h2 { margin: 0 0 6px; }
+.subscribe .sub { color: var(--muted); font-size: 15px; margin: 0 0 18px; max-width: 62ch; }
+.subscribe .sub.done { color: var(--pass); }
+.subscribe .sub.err { color: #fca5a5; }
+.subscribe-form { display: flex; gap: 10px; flex-wrap: wrap; }
+.subscribe-form input[type="email"] {
+  flex: 1 1 320px; min-width: 0; background: var(--bg); border: 1px solid var(--line);
+  color: var(--text); padding: 13px 16px; border-radius: 10px; font: inherit; font-size: 15px;
+}
+.subscribe-form input[type="email"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Honeypot: pushed off-screen rather than display:none, which some bots skip. */
+.subscribe-form .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
 .faq { margin-top: 72px; }
 .faq dl { display: grid; gap: 18px; }
 .faq dt { font-weight: 650; font-size: 16px; }
@@ -146,6 +165,7 @@ h3 { font-size: 16px; margin: 0 0 6px; }
   box-shadow: 0 0 30px -8px var(--accent);
 }
 .score-ring span { font-size: 30px; font-weight: 700; }
+.score-ring span.na { font-size: 24px; letter-spacing: -0.02em; }
 .score-ring small { display: block; color: var(--dim); font-size: 10px; margin-top: 3px; }
 .result-meta { flex: 1; min-width: 240px; }
 .result-meta a { color: var(--accent); font-size: 14px; word-break: break-all; }
@@ -204,6 +224,10 @@ h3 { font-size: 16px; margin: 0 0 6px; }
 .badge { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 3px 9px; border-radius: 999px; background: var(--panel-2); color: var(--muted); }
 .check p { margin: 7px 0 0; color: var(--muted); font-size: 14px; }
 .check p.why { color: var(--dim); font-size: 13px; }
+.check p.caveat {
+  color: #fbbf24; font-size: 12.5px; margin-top: 6px; padding-left: 10px;
+  border-left: 2px solid rgba(251, 191, 36, .45);
+}
 .check pre {
   position: relative; background: #050912; border: 1px solid var(--line); border-radius: 8px;
   padding: 12px 70px 12px 14px; margin: 10px 0 0; overflow-x: auto;
@@ -257,6 +281,9 @@ h3 { font-size: 16px; margin: 0 0 6px; }
   border-top: 1px solid var(--line); padding: 18px 24px; color: var(--dim);
   font-size: 12.5px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
 }
+.foot-links { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.foot-links a { color: var(--muted); text-decoration: none; }
+.foot-links a:hover { color: var(--text); text-decoration: underline; }
 
 @media (max-width: 720px) {
   .tier-switch { margin-left: 0; width: 100%; }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PLANS, can } from "../plans";
 import type { PlanId } from "../types";
 import Mark from "./Mark";
+import SubscribeForm from "./SubscribeForm";
 
 const fmt = (v: string | boolean) => (v === true ? "✓" : v === false ? "—" : "");
 
@@ -119,6 +120,8 @@ export default function Landing({ onStart, activePlan }: { onStart: () => void; 
           )}
         </div>
       </section>
+
+      <SubscribeForm />
 
       <section className="faq">
         <h2>Questions worth answering before you pay</h2>

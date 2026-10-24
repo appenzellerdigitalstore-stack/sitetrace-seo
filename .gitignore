@@ -11,6 +11,7 @@ __pycache__/
 # dev server output
 dev.log
 dev.err
+.dev/
 
 # generated sample output (regenerate: see README)
 sample-report-*.pdf

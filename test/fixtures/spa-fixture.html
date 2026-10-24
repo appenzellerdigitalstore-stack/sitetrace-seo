@@ -1,0 +1,23 @@
+<!doctype html>
+<!--
+  Test fixture: a client-rendered shell.
+
+  The server sends an empty <div id="root"> and a script that never runs, so
+  there is no title, no description and no headings in the HTML the relay
+  receives. The audit must detect this and report "n/a - client-rendered"
+  instead of a score that would be based on a false reading of the page.
+
+  This file lives outside public/ on purpose: it must never ship to
+  production. The dev server exposes it at /__fixtures/spa-fixture.html so
+  the detection can still be tested locally.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title></title>
+    <script type="module" src="/assets/does-not-exist.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
