@@ -24,6 +24,10 @@ export default function AuditView({
   const [result, setResult] = useState<AuditResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** True when the failure was the free allowance running out, not a bad URL. */
+  const [limitHit, setLimitHit] = useState(false);
+  /** Free audits left today, as reported by the relay. Null until one runs. */
+  const [quota, setQuota] = useState<{ limit: number; remaining: number } | null>(null);
 
   const pid = plan.id as PlanId;
 
@@ -32,12 +36,28 @@ export default function AuditView({
     if (!target) return;
     setBusy(true);
     setError(null);
+    setLimitHit(false);
     setResult(null);
     try {
       const normalised = /^https?:\/\//i.test(target) ? target : `https://${target}`;
       const proxy = `/api/fetch?url=${encodeURIComponent(normalised)}`;
       const res = await fetch(proxy, { redirect: "follow" });
 
+      const limit = Number(res.headers.get("x-quota-limit") ?? "0");
+      const remaining = Number(res.headers.get("x-quota-remaining") ?? "-1");
+      const enforced = res.headers.get("x-quota-enforced") === "true";
+
+      if (res.status === 429) {
+        // The free allowance is spent. Say so plainly, and say what to do.
+        // The stale allowance note would only repeat this, so drop it.
+        setLimitHit(true);
+        setQuota(null);
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(
+          body.error ??
+            `That is today's free audit used. It resets at midnight UTC — a paid plan gives you ${plan.dailyAudits} a day.`,
+        );
+      }
       if (res.status === 502) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? "Could not reach that URL");
@@ -46,6 +66,8 @@ export default function AuditView({
 
       const html = await res.text();
       const finalUrl = res.headers.get("x-sitetrace-final-url") ?? normalised;
+      // Only a completed audit updates the allowance shown to the visitor.
+      if (enforced) setQuota({ limit, remaining });
       setResult(runAudit(html, normalised, finalUrl));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -100,13 +122,22 @@ export default function AuditView({
         ))}
       </div>
 
+      {quota && (
+        <p className="quota-note">
+          {quota.remaining > 0
+            ? `Free audits left today: ${quota.remaining} of ${quota.limit}.`
+            : "That was today's free audit — it resets at midnight UTC."}
+        </p>
+      )}
+
       {error && (
         <div className="error">
-          <strong>Could not audit that URL.</strong>
+          <strong>{limitHit ? "That is today's free audit used." : "Could not audit that URL."}</strong>
           <p>{error}</p>
           <small>
-            Most failures are the target blocking automated requests. A Cloudflare-protected site will
-            refuse the fetch — that is a property of the site, not the audit.
+            {limitHit
+              ? `Free audits reset at midnight UTC. A paid plan gives you ${plan.dailyAudits} a day.`
+              : "Most failures are the target blocking automated requests. A Cloudflare-protected site will refuse the fetch — that is a property of the site, not the audit."}
           </small>
         </div>
       )}

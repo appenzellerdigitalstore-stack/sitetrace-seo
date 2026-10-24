@@ -12,15 +12,36 @@
  *
  * Living here rather than in a separate Worker means it deploys with the
  * Pages project, so there is no second wrangler login and no route to wire.
- * `vite.config.ts` implements the same relay for local development.
+ * `vite.config.ts` implements the same relay for local development, using the
+ * same shared quota module so the two cannot drift apart.
  *
  * The response header name must match that plugin.
  */
+
+import {
+  consumeQuota,
+  DAY_SECONDS,
+  FREE_DAILY_AUDITS,
+  peekQuota,
+  quotaHeaders,
+  quotaKey,
+  quotaMessage,
+  today,
+  type QuotaState,
+  type QuotaStore,
+} from "./_quota";
 
 const FINAL_URL_HEADER = "x-sitetrace-final-url";
 
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
+/**
+ * Largest HTML document the relay will buffer. A page bigger than this is
+ * almost certainly not a marketing site, and buffering it would spend the
+ * worker's memory on a single request.
+ */
+const MAX_BYTES = 5 * 1024 * 1024;
 
 // Hosts the relay must never reach. Without this the function could be used to
 // probe a private network from the edge.
@@ -42,25 +63,12 @@ interface Env {
   };
 }
 
-/**
- * Daily allowance per client IP, applied when the QUOTA namespace is bound.
- *
- * One audit is one invocation, so this is the only thing standing between a
- * crawler (or a bored person) and the account's daily request budget. The
- * number is deliberately generous for a normal visitor and stingy enough to
- * stop abuse; plan limits replace it once licences exist.
- */
-const FREE_DAILY_AUDITS = 5;
-
-/**
- * Largest HTML document the relay will buffer. A page bigger than this is
- * almost certainly not a marketing site, and buffering it would spend the
- * worker's memory on a single request.
- */
-const MAX_BYTES = 5 * 1024 * 1024;
-
-/** KV keys expire after this many seconds, so counters self-reset. */
-const DAY_SECONDS = 60 * 60 * 24;
+function json(body: unknown, status: number, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", ...headers },
+  });
+}
 
 function clientId(request: Request): string {
   // CF-Connecting-IP is set by Cloudflare and cannot be spoofed by the
@@ -68,52 +76,28 @@ function clientId(request: Request): string {
   return request.headers.get("CF-Connecting-IP") ?? "unknown";
 }
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-interface QuotaState {
-  allowed: boolean;
-  used: number;
-  remaining: number;
-  /** False when no KV binding exists, so the limit is not actually applied. */
-  enforced: boolean;
-}
-
-async function peekQuota(env: Env, request: Request): Promise<QuotaState> {
-  if (!env.QUOTA) {
-    // No binding configured yet — do not block traffic, but say so in the
-    // headers so it is visible in the response.
-    return { allowed: true, used: 0, remaining: -1, enforced: false };
-  }
-
-  const raw = await env.QUOTA.get(quotaKey(request), "text");
-  const used = Number.parseInt(raw ?? "0", 10) || 0;
-
+/**
+ * Adapts the KV binding to the shared quota store.
+ *
+ * The KV key carries its own expiry, so counters self-reset at midnight
+ * without a scheduled job.
+ */
+function kvStore(env: Env): QuotaStore | null {
+  if (!env.QUOTA) return null;
   return {
-    allowed: used < FREE_DAILY_AUDITS,
-    used,
-    remaining: FREE_DAILY_AUDITS - used,
-    enforced: true,
+    get: (key) => env.QUOTA!.get(key, "text"),
+    put: (key, value) => env.QUOTA!.put(key, value, { expirationTtl: DAY_SECONDS }),
   };
 }
 
-/**
- * Counts the request against the quota.
- *
- * Called only after a successful fetch: a typo'd URL, a host that times out or
- * a file that turns out not to be HTML should not cost the visitor an audit.
- */
-async function consumeQuota(env: Env, request: Request, current: number): Promise<QuotaState> {
-  if (!env.QUOTA) return { allowed: true, used: 0, remaining: -1, enforced: false };
-
-  const used = current + 1;
-  await env.QUOTA.put(quotaKey(request), String(used), { expirationTtl: DAY_SECONDS });
-  return { allowed: true, used, remaining: Math.max(0, FREE_DAILY_AUDITS - used), enforced: true };
-}
-
-function quotaKey(request: Request): string {
-  return `quota:${clientId(request)}:${today()}`;
+function isBlockedHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return (
+    BLOCKED.includes(h) ||
+    h.endsWith(".internal") ||
+    h.endsWith(".localhost") ||
+    /^\d+\.\d+\.\d+\.\d+$/.test(h) // bare IPv4 literal
+  );
 }
 
 /**
@@ -156,23 +140,6 @@ async function readCapped(response: Response, limit: number): Promise<{ text: st
   return { text: new TextDecoder("utf-8").decode(merged), truncated: false };
 }
 
-function json(body: unknown, status: number, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8", ...headers },
-  });
-}
-
-function isBlockedHost(host: string): boolean {
-  const h = host.toLowerCase();
-  return (
-    BLOCKED.includes(h) ||
-    h.endsWith(".internal") ||
-    h.endsWith(".localhost") ||
-    /^\d+\.\d+\.\d+\.\d+$/.test(h) // bare IPv4 literal
-  );
-}
-
 export const onRequest = async (context: {
   request: Request;
   env: Env;
@@ -212,26 +179,21 @@ export const onRequest = async (context: {
   }
 
   // Check the quota first: a rejected request should not cost an upstream fetch.
-  const quota = await peekQuota(env, request);
+  const store = kvStore(env);
+  const key = quotaKey(clientId(request), today());
+  const quota = await peekQuota(store, key);
 
-  const quotaHeaders = (state: QuotaState) => ({
-    ...cors,
-    "x-quota-limit": String(FREE_DAILY_AUDITS),
-    "x-quota-used": String(state.used),
-    // -1 means the limit is not actually enforced (no KV binding yet).
-    "x-quota-remaining": String(state.remaining),
-    "x-quota-enforced": String(state.enforced),
-  });
+  const headers = (state: QuotaState) => ({ ...cors, ...quotaHeaders(state) });
 
   if (!quota.allowed) {
     return json(
       {
-        error: `daily limit reached (${FREE_DAILY_AUDITS} audits per day on the free tier)`,
+        error: quotaMessage(),
         code: "quota_exceeded",
         limit: FREE_DAILY_AUDITS,
       },
       429,
-      quotaHeaders(quota),
+      headers(quota),
     );
   }
 
@@ -250,7 +212,7 @@ export const onRequest = async (context: {
       return json(
         { error: `that url is not an html page (${contentType.split(";")[0] || "unknown type"})` },
         415,
-        quotaHeaders(quota),
+        headers(quota),
       );
     }
 
@@ -259,12 +221,12 @@ export const onRequest = async (context: {
       return json(
         { error: `that page is too large to audit (limit ${MAX_BYTES / 1024 / 1024} MB)` },
         413,
-        quotaHeaders(quota),
+        headers(quota),
       );
     }
 
     // Only a fetch that produced a usable page counts against the quota.
-    const state = await consumeQuota(env, request, quota.used);
+    const state = await consumeQuota(store, key, quota.used);
 
     return new Response(body.text, {
       status: 200,
@@ -274,10 +236,10 @@ export const onRequest = async (context: {
         // Short cache: repeated audits of the same URL are cheap to serve,
         // but a crawl-bait pattern should not pin results for long.
         "cache-control": "public, max-age=300",
-        ...quotaHeaders(state),
+        ...headers(state),
       },
     });
   } catch (err) {
-    return json({ error: `could not fetch that host: ${String(err)}` }, 502, quotaHeaders(quota));
+    return json({ error: `could not fetch that host: ${String(err)}` }, 502, headers(quota));
   }
 };

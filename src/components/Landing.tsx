@@ -36,7 +36,8 @@ export default function Landing({ onStart, activePlan }: { onStart: () => void; 
           </a>
         </div>
         <p className="fine">
-          No free tier. One audit is one fetch — a paid plan is what makes it repeatable.
+          One free audit a day, no signup. One audit is one fetch — a paid plan is what makes it
+          repeatable.
         </p>
       </section>
 
@@ -126,10 +127,11 @@ export default function Landing({ onStart, activePlan }: { onStart: () => void; 
       <section className="faq">
         <h2>Questions worth answering before you pay</h2>
         <dl>
-          <dt>Why is there no free tier?</dt>
+          <dt>Is there a free tier?</dt>
           <dd>
-            Every audit is a real outbound fetch. A free tier subsidised by paying users is how
-            micro-SaaS quietly dies. One run to see if you like it, then pay to keep running it.
+            Yes — one audit a day, no account needed. Every audit is a real outbound fetch from our
+            server, so the free allowance is one a day rather than unlimited. A paid plan raises it
+            to 50 (Pro) or 250 (Agency) a day and adds history, scheduling and the API.
           </dd>
           <dt>Can an AI assistant just do this instead?</dt>
           <dd>

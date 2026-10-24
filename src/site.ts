@@ -17,12 +17,19 @@ export const SITE = {
 } as const;
 
 /**
- * Newsletter copy. Kept next to the form so the promise made on the landing
- * page and the one sent by email cannot drift apart.
+ * List copy.
+ *
+ * Kept next to the form so the promise made on the landing page and the one
+ * kept by email cannot drift apart.
+ *
+ * The wording deliberately promises no schedule: "the occasional teardown" is
+ * something Ed can keep with one email a month or with none. If the list is
+ * not worth running, delete the <SubscribeForm /> line in Landing.tsx —
+ * nothing else in the app depends on it.
  */
 export const NEWSLETTER = {
-  title: "The Tuesday Teardown",
+  title: "Join the list",
   blurb:
-    "One page, audited properly, every other Tuesday. What broke, what it costs, and the markup to fix it. No spam, no upsells.",
-  confirm: "You're on the list. The first teardown lands Tuesday.",
+    "Product updates, and the occasional teardown — one real page audited properly: what broke and how to fix it. No spam, unsubscribe in one click.",
+  confirm: "You're on the list. Thanks.",
 } as const;

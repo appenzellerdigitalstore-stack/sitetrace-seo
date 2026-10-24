@@ -3,6 +3,15 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import {
+  consumeQuota,
+  peekQuota,
+  quotaHeaders,
+  quotaKey,
+  quotaMessage,
+  today,
+  type QuotaStore,
+} from "./functions/api/_quota";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
@@ -14,16 +23,34 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 export const FINAL_URL_HEADER = "x-sitetrace-final-url";
 
 /**
- * Dev/preview stand-in for the Cloudflare Worker that ships to production.
+ * Dev stand-in for the Cloudflare Worker that ships to production.
  *
  * The audit has to fetch an arbitrary third-party URL, which browsers block on
- * CORS. In production that is `worker/fetch-proxy.ts` bound to /api/fetch.
+ * CORS. In production that is the Pages Function in functions/api/fetch.ts.
  * Locally this middleware does the same job so `npm run dev` and
  * `npm run preview` behave exactly like the deployed site.
+ *
+ * It uses the same shared quota module, so the free allowance a visitor sees
+ * locally is the same one they will see in production. Set DEV_QUOTA=1 to
+ * exercise the "you have used today's free audit" path without waiting for
+ * midnight.
  *
  * The audit itself still runs in the browser — this only relays one request.
  */
 function fetchProxy(): Plugin {
+  // The free allowance in dev. Generous by default so local work is not
+  // interrupted; DEV_QUOTA=1 mirrors production exactly.
+  const limit = Number(process.env.DEV_QUOTA ?? "20");
+
+  // A counter that lives as long as the dev server, standing in for KV.
+  const counters = new Map<string, string>();
+  const store: QuotaStore = {
+    get: async (key) => counters.get(key) ?? null,
+    put: async (key, value) => {
+      counters.set(key, value);
+    },
+  };
+
   return {
     name: "sitetrace-seo-fetch-proxy",
     configureServer(server) {
@@ -34,6 +61,20 @@ function fetchProxy(): Plugin {
           res.end(JSON.stringify({ error: "missing url" }));
           return;
         }
+
+        const key = quotaKey(req.socket.remoteAddress ?? "dev", today());
+        const quota = await peekQuota(store, key, limit);
+
+        if (!quota.allowed) {
+          res.statusCode = 429;
+          res.setHeader("content-type", "application/json");
+          for (const [name, value] of Object.entries(quotaHeaders(quota, limit))) {
+            res.setHeader(name, value);
+          }
+          res.end(JSON.stringify({ error: quotaMessage(limit), code: "quota_exceeded", limit }));
+          return;
+        }
+
         try {
           const upstream = await fetch(target, {
             redirect: "follow",
@@ -44,8 +85,12 @@ function fetchProxy(): Plugin {
             },
           });
           const html = await upstream.text();
+          const state = await consumeQuota(store, key, quota.used, limit);
           res.setHeader("content-type", "text/html; charset=utf-8");
           res.setHeader(FINAL_URL_HEADER, upstream.url);
+          for (const [name, value] of Object.entries(quotaHeaders(state, limit))) {
+            res.setHeader(name, value);
+          }
           res.end(html);
         } catch (err) {
           res.statusCode = 502;
